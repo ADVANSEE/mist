@@ -26,8 +26,8 @@
 #undef NBR_TABLE_CONF_MAX_NEIGHBORS
 #define NBR_TABLE_CONF_MAX_NEIGHBORS                 20
 
-#undef UIP_CONF_DS6_ROUTE_NBU
-#define UIP_CONF_DS6_ROUTE_NBU               20
+#undef UIP_CONF_MAX_ROUTES
+#define UIP_CONF_MAX_ROUTES                  20
 
 #undef UIP_CONF_RECEIVE_WINDOW
 #define UIP_CONF_RECEIVE_WINDOW  1000
