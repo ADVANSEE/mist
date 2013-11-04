@@ -678,21 +678,25 @@ packet_input(void)
 #if WITH_DUP_FILTERING
     /* Check for duplicate packet by comparing the sequence number
        of the incoming packet with the last few ones we saw. */
-    int i;
+    int i, j;
     const rimeaddr_t *sender = packetbuf_addr(PACKETBUF_ADDR_SENDER);
     uint8_t sender_seq = packetbuf_attr(PACKETBUF_ATTR_PACKET_ID);
 
     for(i = 0; i < MAX_SEQNOS; ++i) {
-      if(sender_seq == received_seqnos[i].seqno
-          && rimeaddr_cmp(sender, &received_seqnos[i].sender)) {
-        /* Drop the packet. */
-        PRINTF("multichan: drop duplicate link layer packet %u\n",
-               packetbuf_attr(PACKETBUF_ATTR_PACKET_ID));
-        return;
+      if(rimeaddr_cmp(sender, &received_seqnos[i].sender)) {
+        if(sender_seq == received_seqnos[i].seqno) {
+          /* Drop the packet. */
+          PRINTF("multichan: drop duplicate link layer packet %u\n",
+                 packetbuf_attr(PACKETBUF_ATTR_PACKET_ID));
+          return;
+        }
+        i++;
+        break;
       }
     }
-    for(i = MAX_SEQNOS - 1; i > 0; --i) {
-      memcpy(&received_seqnos[i], &received_seqnos[i - 1],
+    /* Keep the last sequence number for each address as per 802.15.4e. */
+    for(j = i - 1; j > 0; --j) {
+      memcpy(&received_seqnos[j], &received_seqnos[j - 1],
              sizeof(struct seqno));
     }
     received_seqnos[0].seqno = sender_seq;
