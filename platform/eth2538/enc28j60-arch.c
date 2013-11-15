@@ -40,22 +40,22 @@
 
 /* CLK = CLocK */
 #define SPI_CLK_PORT  GPIO_A_BASE
-#define SPI_CLK_BIT   (1 << 2)
+#define SPI_CLK_BIT   GPIO_PIN_MASK(2)
 #define SPI_CLK       SPI_CLK_PORT, SPI_CLK_BIT
 
 /* MOSI = Master Output, Slave Input */
 #define SPI_MOSI_PORT GPIO_A_BASE
-#define SPI_MOSI_BIT  (1 << 4)
+#define SPI_MOSI_BIT  GPIO_PIN_MASK(4)
 #define SPI_MOSI      SPI_MOSI_PORT, SPI_MOSI_BIT
 
 /* MISO = Master Input, Slave Output */
 #define SPI_MISO_PORT GPIO_A_BASE
-#define SPI_MISO_BIT  (1 << 5)
+#define SPI_MISO_BIT  GPIO_PIN_MASK(5)
 #define SPI_MISO      SPI_MISO_PORT, SPI_MISO_BIT
 
 /* CS = Chip Select */
 #define SPI_CS_PORT   GPIO_D_BASE
-#define SPI_CS_BIT    (1 << 5)
+#define SPI_CS_BIT    GPIO_PIN_MASK(5)
 #define SPI_CS        SPI_CS_PORT, SPI_CS_BIT
 
 
@@ -65,19 +65,19 @@
 static void
 gpio_set(int port, int bit)
 {
-  REG((port | GPIO_DATA) + (bit << 2)) = bit;
+  GPIO_SET_PIN(port, bit);
 }
 /*---------------------------------------------------------------------------*/
 static void
 gpio_reset(int port, int bit)
 {
-  REG((port | GPIO_DATA) + (bit << 2)) = 0;
+  GPIO_CLR_PIN(port, bit);
 }
 /*---------------------------------------------------------------------------*/
 static int
 gpio_get(int port, int bit)
 {
-  return REG((port | GPIO_DATA) + (bit << 2));
+  return GPIO_READ_PIN(port, bit);
 }
 /*---------------------------------------------------------------------------*/
 static void

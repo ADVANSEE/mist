@@ -237,18 +237,6 @@ static volatile unsigned char radio_is_on = 0;
 #define MIN(a, b) ((a) < (b)? (a) : (b))
 #endif /* MIN */
 
-struct seqno {
-  rimeaddr_t sender;
-  uint8_t seqno;
-};
-
-#ifdef NETSTACK_CONF_MAC_SEQNO_HISTORY
-#define MAX_SEQNOS NETSTACK_CONF_MAC_SEQNO_HISTORY
-#else /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
-#define MAX_SEQNOS 16
-#endif /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
-static struct seqno received_seqnos[MAX_SEQNOS];
-
 static struct ctimer drowsie_ctimer;
 
 /*---------------------------------------------------------------------------*/
@@ -657,30 +645,11 @@ input_packet(void)
         ctimer_stop(&ct);
       }
 
-      /* Check for duplicate packet by comparing the sequence number
-         of the incoming packet with the last few ones we saw. */
-      {
-        int i, j;
-        for(i = 0; i < MAX_SEQNOS; ++i) {
-          if(rimeaddr_cmp(packetbuf_addr(PACKETBUF_ADDR_SENDER),
-                          &received_seqnos[i].sender)) {
-            if(packetbuf_attr(PACKETBUF_ATTR_PACKET_ID) == received_seqnos[i].seqno) {
-              /* Drop the packet. */
-              /*        printf("Drop duplicate Drowsie layer packet\n");*/
-              return;
-            }
-            i++;
-            break;
-          }
-        }
-        /* Keep the last sequence number for each address as per 802.15.4e. */
-        for(j = i - 1; j > 0; --j) {
-          memcpy(&received_seqnos[j], &received_seqnos[j - 1],
-                 sizeof(struct seqno));
-        }
-        received_seqnos[0].seqno = packetbuf_attr(PACKETBUF_ATTR_PACKET_ID);
-        rimeaddr_copy(&received_seqnos[0].sender,
-                      packetbuf_addr(PACKETBUF_ADDR_SENDER));
+      /* Check for duplicate packet. */
+      if(packetbuf_is_duplicate()) {
+        /* Drop the packet. */
+        /*        printf("Drop duplicate Drowsie layer packet\n");*/
+        return;
       }
 
       PRINTDEBUG("drowsie: data (%u)\n", packetbuf_datalen());

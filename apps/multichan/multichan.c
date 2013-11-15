@@ -180,20 +180,6 @@ send_packet_chan(int broadcast);
 
 #define WITH_DEST_FILTERING 1
 #define WITH_DUP_FILTERING 1
-#if WITH_DUP_FILTERING
-struct seqno {
-  rimeaddr_t sender;
-  uint8_t seqno;
-};
-
-#ifdef NETSTACK_CONF_MAC_SEQNO_HISTORY
-#define MAX_SEQNOS NETSTACK_CONF_MAC_SEQNO_HISTORY
-#else /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
-#define MAX_SEQNOS 16
-#endif /* NETSTACK_CONF_MAC_SEQNO_HISTORY */
-
-static struct seqno received_seqnos[MAX_SEQNOS];
-#endif /* WITH_DUP_FILTERING */
 
 #define WITH_SEND_TWO_CHANNELS 1
 #if WITH_SEND_TWO_CHANNELS
@@ -676,31 +662,13 @@ packet_input(void)
 #endif /* WITH_DEST_FILTERING */
 
 #if WITH_DUP_FILTERING
-    /* Check for duplicate packet by comparing the sequence number
-       of the incoming packet with the last few ones we saw. */
-    int i, j;
-    const rimeaddr_t *sender = packetbuf_addr(PACKETBUF_ADDR_SENDER);
-    uint8_t sender_seq = packetbuf_attr(PACKETBUF_ATTR_PACKET_ID);
-
-    for(i = 0; i < MAX_SEQNOS; ++i) {
-      if(rimeaddr_cmp(sender, &received_seqnos[i].sender)) {
-        if(sender_seq == received_seqnos[i].seqno) {
-          /* Drop the packet. */
-          PRINTF("multichan: drop duplicate link layer packet %u\n",
-                 packetbuf_attr(PACKETBUF_ATTR_PACKET_ID));
-          return;
-        }
-        i++;
-        break;
-      }
+    /* Check for duplicate packet. */
+    if(packetbuf_is_duplicate()) {
+      /* Drop the packet. */
+      PRINTF("multichan: drop duplicate link layer packet %u\n",
+             packetbuf_attr(PACKETBUF_ATTR_PACKET_ID));
+      return;
     }
-    /* Keep the last sequence number for each address as per 802.15.4e. */
-    for(j = i - 1; j > 0; --j) {
-      memcpy(&received_seqnos[j], &received_seqnos[j - 1],
-             sizeof(struct seqno));
-    }
-    received_seqnos[0].seqno = sender_seq;
-    rimeaddr_copy(&received_seqnos[0].sender, sender);
 #endif /* WITH_DUP_FILTERING */
 
 #if WITH_STATS
