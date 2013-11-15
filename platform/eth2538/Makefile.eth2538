@@ -12,7 +12,7 @@ CLEAN += *.eth2538
 
 PLATFORMAPPS += simple-rpl aes drowsie enc28j60
 
-CONTIKI_TARGET_DIRS += $(CC2538DKDIR) $(CC2538DKDIR)/dev
+PROJECTDIRS += $(CC2538DKDIR) $(CC2538DKDIR)/dev
 
 DEFINES += PLATFORM_CONF=\"platform-conf.h\"
 
