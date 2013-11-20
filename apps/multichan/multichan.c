@@ -32,6 +32,7 @@
 
 #include "contiki.h"
 #include "multichan.h"
+#include "net/mac/mac-sequence.h"
 #include "net/packetbuf.h"
 #include "net/queuebuf.h"
 #include "net/netstack.h"
@@ -663,12 +664,13 @@ packet_input(void)
 
 #if WITH_DUP_FILTERING
     /* Check for duplicate packet. */
-    if(packetbuf_is_duplicate()) {
+    if(mac_sequence_is_duplicate()) {
       /* Drop the packet. */
       PRINTF("multichan: drop duplicate link layer packet %u\n",
              packetbuf_attr(PACKETBUF_ATTR_PACKET_ID));
       return;
     }
+    mac_sequence_register_seqno();
 #endif /* WITH_DUP_FILTERING */
 
 #if WITH_STATS

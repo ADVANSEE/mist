@@ -77,6 +77,7 @@
 #include "dev/radio.h"
 #include "dev/watchdog.h"
 #include "lib/random.h"
+#include "net/mac/mac-sequence.h"
 #include "net/mac/contikimac.h"
 #include "net/netstack.h"
 #include "net/rime.h"
@@ -646,11 +647,12 @@ input_packet(void)
       }
 
       /* Check for duplicate packet. */
-      if(packetbuf_is_duplicate()) {
+      if(mac_sequence_is_duplicate()) {
         /* Drop the packet. */
         /*        printf("Drop duplicate Drowsie layer packet\n");*/
         return;
       }
+      mac_sequence_register_seqno();
 
       PRINTDEBUG("drowsie: data (%u)\n", packetbuf_datalen());
       DROWSIE_MAC_INPUT();
