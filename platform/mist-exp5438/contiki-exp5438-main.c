@@ -51,7 +51,6 @@
 #include "net/netstack.h"
 #include "net/rime.h"
 #include "sys/autostart.h"
-#include "sys/profile.h"
 
 #include "node-id.h"
 #include "lcd.h"

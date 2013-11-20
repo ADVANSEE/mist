@@ -45,7 +45,6 @@
 #include "contiki.h"
 #include "contiki-net.h"
 #include "sys/autostart.h"
-#include "sys/profile.h"
 #include "dev/leds.h"
 #include "dev/serial-line.h"
 #include "dev/slip.h"
