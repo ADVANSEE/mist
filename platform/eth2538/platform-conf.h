@@ -48,4 +48,7 @@
 #undef IEEE_ADDR_CONF_IN_FLASH
 #define IEEE_ADDR_CONF_IN_FLASH              0*/
 
+#define SPI_CONF_PHASE           0
+#define SPI_CONF_POLARITY        0
+
 #endif /* PLATFORM_CONF_H */
