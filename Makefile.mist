@@ -26,9 +26,7 @@ endif
 
 # The Mist is IPv6-only, unless we define MISTRIME - this is intended to be used only for debugging
 ifndef MISTRIME
-WITH_UIP6=1
 UIP_CONF_IPV6=1
-CFLAGS+=-DUIP_CONF_IPV6=1
 ifeq ($(MISTRPL),0)
 #UIP_CONF_RPL=0
 else
