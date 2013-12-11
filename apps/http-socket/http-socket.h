@@ -38,13 +38,18 @@ struct http_socket;
 typedef enum {
   HTTP_SOCKET_ERR,
   HTTP_SOCKET_OK,
+  HTTP_SOCKET_HEADER,
   HTTP_SOCKET_DATA,
-  HTTP_SOCKET_404,
   HTTP_SOCKET_CLOSED,
   HTTP_SOCKET_TIMEDOUT,
   HTTP_SOCKET_ABORTED,
   HTTP_SOCKET_HOSTNAME_NOT_FOUND,
 } http_socket_event_t;
+
+struct http_socket_header {
+  uint16_t status_code;
+  int64_t content_length;
+};
 
 typedef void (* http_socket_callback_t)(struct http_socket *s,
                                         void *ptr,

@@ -31,6 +31,8 @@
 #include "mist.h"
 #include "http-socket.h"
 
+#include <ctype.h>
+
 #define MAX_PATHLEN 80
 #define MAX_HOSTLEN 40
 PROCESS(http_socket_process, "HTTP socket process");
@@ -56,9 +58,11 @@ static int
 parse_header_byte(struct http_socket *s, char c)
 {
   static int i;
-  static char status_code[3];
-  static char ending[4];
+  static struct http_socket_header header;
+  static char field[15];
   PT_BEGIN(&s->headerpt);
+
+  memset(&header, -1, sizeof(header));
 
   /* Skip the HTTP response */
   while(c != ' ') {
@@ -67,50 +71,84 @@ parse_header_byte(struct http_socket *s, char c)
 
   /* Skip the space */
   PT_YIELD(&s->headerpt);
-  /* Read three bytes of HTTP status */
+  /* Read three characters of HTTP status and convert to BCD */
+  header.status_code = 0;
   for(i = 0; i < 3; i++) {
-    status_code[i] = c;
+    header.status_code = header.status_code << 4 | (c - '0');
     PT_YIELD(&s->headerpt);
   }
 
-  if(memcmp(status_code, "404", 3) == 0) {
+  if(header.status_code == 0x404) {
     puts("File not found");
-    call_callback(s, HTTP_SOCKET_404, NULL, 0);
-    while(1) {
-      PT_YIELD(&s->headerpt);
-    }
-  } else if(memcmp(status_code, "301", 3) == 0 ||
-            memcmp(status_code, "302", 3) == 0) {
+  } else if(header.status_code == 0x301 || header.status_code == 0x302) {
     puts("File moved (not handled)");
+  } else if(header.status_code == 0x200) {
+    /* Read headers until data */
+
     while(1) {
-      PT_YIELD(&s->headerpt);
-    }
-  } else if(memcmp(status_code, "200", 3) == 0) {
-    /* Skip headers until data */
-
-    do {
-      /* Read bytes until first \r */
+      /* Skip characters until end of line */
       do {
+        while(c != '\r') {
+          i++;
+          PT_YIELD(&s->headerpt);
+        }
+        i++;
         PT_YIELD(&s->headerpt);
-      } while(c != '\r');
+      } while(c != '\n');
+      i--;
+      PT_YIELD(&s->headerpt);
 
-      /* Check for \r\n\r\n, otherwise continue looping */
+      if(i == 0) {
+        /* This was an empty line, i.e. the end of headers */
+        break;
+      }
+
+      /* Start of line */
       i = 0;
-      while((c == '\r' || c == '\n') && i < sizeof(ending)) {
-        ending[i] = c;
+
+      /* Read header field */
+      while(c != ' ' && c != '\t' && c != ':' && c != '\r' &&
+            i < sizeof(field) - 1) {
+        field[i++] = c;
+        PT_YIELD(&s->headerpt);
+      }
+      field[i] = '\0';
+      /* Skip linear white spaces */
+      while(c == ' ' || c == '\t') {
         i++;
         PT_YIELD(&s->headerpt);
       }
-    } while(i != 4 && memcmp(ending, "\r\n\r\n", 4) != 0);
+      if(c == ':') {
+        /* Skip the colon */
+        i++;
+        PT_YIELD(&s->headerpt);
+        /* Skip linear white spaces */
+        while(c == ' ' || c == '\t') {
+          i++;
+          PT_YIELD(&s->headerpt);
+        }
+        if(!strcmp(field, "Content-Length")) {
+          header.content_length = 0;
+          while(isdigit((int)c)) {
+            header.content_length = header.content_length * 10 + c - '0';
+            i++;
+            PT_YIELD(&s->headerpt);
+          }
+        }
+      }
+    }
 
-    /* All headers skipped, now read data */
+    /* All headers read, now read data */
+    call_callback(s, HTTP_SOCKET_HEADER, (void *)&header, sizeof(header));
+
     /* Should exit the pt here to indicate that all headers have been
        read */
     PT_EXIT(&s->headerpt);
-  } else {
-    while(1) {
-      PT_YIELD(&s->headerpt);
-    }
+  }
+
+  call_callback(s, HTTP_SOCKET_HEADER, (void *)&header, sizeof(header));
+  while(1) {
+    PT_YIELD(&s->headerpt);
   }
 
   PT_END(&s->headerpt);
