@@ -49,6 +49,11 @@ typedef enum {
 struct http_socket_header {
   uint16_t status_code;
   int64_t content_length;
+  struct {
+    int64_t first_byte_pos;
+    int64_t last_byte_pos;
+    int64_t instance_length;
+  } content_range;
 };
 
 typedef void (* http_socket_callback_t)(struct http_socket *s,
@@ -65,6 +70,8 @@ typedef void (* http_socket_callback_t)(struct http_socket *s,
 struct http_socket {
   struct http_socket *next;
   struct tcp_socket s;
+  int64_t pos;
+  uint64_t length;
   http_socket_callback_t callback;
   void *callbackptr;
   char url[HTTP_SOCKET_URLLEN];
@@ -77,6 +84,7 @@ struct http_socket {
 
 
 int http_socket_get(struct http_socket *s, const char *url,
+                     int64_t pos, uint64_t length,
                      http_socket_callback_t callback,
                      void *callbackptr);
 

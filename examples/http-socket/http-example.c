@@ -23,7 +23,7 @@ PROCESS_THREAD(http_example_process, ev, data)
   static struct etimer et;
   etimer_set(&et, CLOCK_SECOND);
 
-  http_socket_get(&s, "http://172.16.0.1:8000/firmware",
+  http_socket_get(&s, "http://172.16.0.1:8000/firmware", 0, 0,
                   callback, NULL);
 
   while(1) {

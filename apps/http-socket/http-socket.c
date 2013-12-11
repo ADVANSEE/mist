@@ -82,7 +82,7 @@ parse_header_byte(struct http_socket *s, char c)
     puts("File not found");
   } else if(header.status_code == 0x301 || header.status_code == 0x302) {
     puts("File moved (not handled)");
-  } else if(header.status_code == 0x200) {
+  } else if(header.status_code == 0x200 || header.status_code == 0x206) {
     /* Read headers until data */
 
     while(1) {
@@ -133,6 +133,70 @@ parse_header_byte(struct http_socket *s, char c)
             header.content_length = header.content_length * 10 + c - '0';
             i++;
             PT_YIELD(&s->headerpt);
+          }
+        } else if(!strcmp(field, "Content-Range")) {
+          /* Skip the bytes-unit token */
+          while(c != ' ' && c != '\t') {
+            i++;
+            PT_YIELD(&s->headerpt);
+          }
+          /* Skip linear white spaces */
+          while(c == ' ' || c == '\t') {
+            i++;
+            PT_YIELD(&s->headerpt);
+          }
+          header.content_range.first_byte_pos = 0;
+          while(isdigit((int)c)) {
+            header.content_range.first_byte_pos =
+              header.content_range.first_byte_pos * 10 + c - '0';
+            i++;
+            PT_YIELD(&s->headerpt);
+          }
+          /* Skip linear white spaces */
+          while(c == ' ' || c == '\t') {
+            i++;
+            PT_YIELD(&s->headerpt);
+          }
+          if(c == '-') {
+            /* Skip the dash */
+            i++;
+            PT_YIELD(&s->headerpt);
+            /* Skip linear white spaces */
+            while(c == ' ' || c == '\t') {
+              i++;
+              PT_YIELD(&s->headerpt);
+            }
+            header.content_range.last_byte_pos = 0;
+            while(isdigit((int)c)) {
+              header.content_range.last_byte_pos =
+                header.content_range.last_byte_pos * 10 + c - '0';
+              i++;
+              PT_YIELD(&s->headerpt);
+            }
+            /* Skip linear white spaces */
+            while(c == ' ' || c == '\t') {
+              i++;
+              PT_YIELD(&s->headerpt);
+            }
+            if(c == '/') {
+              /* Skip the slash */
+              i++;
+              PT_YIELD(&s->headerpt);
+              /* Skip linear white spaces */
+              while(c == ' ' || c == '\t') {
+                i++;
+                PT_YIELD(&s->headerpt);
+              }
+              if(c != '*') {
+                header.content_range.instance_length = 0;
+                while(isdigit((int)c)) {
+                  header.content_range.instance_length =
+                    header.content_range.instance_length * 10 + c - '0';
+                  i++;
+                  PT_YIELD(&s->headerpt);
+                }
+              }
+            }
           }
         }
       }
@@ -305,17 +369,32 @@ event(struct tcp_socket *tcps, void *ptr,
   char host[MAX_HOSTLEN];
   char path[MAX_PATHLEN];
   uint16_t port;
-
+  char str[42];
 
   if(e == TCP_SOCKET_CONNECTED) {
     puts("Connected");
     if(parse_url(s->url, host, &port, path)) {
       tcp_socket_send_str(tcps, "GET ");
       tcp_socket_send_str(tcps, path);
-      tcp_socket_send_str(tcps, " HTTP/1.0\r\n");
+      tcp_socket_send_str(tcps, " HTTP/1.1\r\n");
+      tcp_socket_send_str(tcps, "Connection: close\r\n");
       tcp_socket_send_str(tcps, "Host: ");
       tcp_socket_send_str(tcps, host);
       tcp_socket_send_str(tcps, "\r\n");
+      if(s->length || s->pos > 0) {
+        tcp_socket_send_str(tcps, "Range: bytes=");
+        if(s->length) {
+          if(s->pos >= 0) {
+            sprintf(str, "%llu-%llu", s->pos, s->pos + s->length - 1);
+          } else {
+            sprintf(str, "-%llu", s->length);
+          }
+        } else {
+          sprintf(str, "%llu-", s->pos);
+        }
+        tcp_socket_send_str(tcps, str);
+        tcp_socket_send_str(tcps, "\r\n");
+      }
       tcp_socket_send_str(tcps, "\r\n");
     }
     parse_header_init(s);
@@ -424,12 +503,16 @@ init(void)
 int
 http_socket_get(struct http_socket *s,
                 const char *url,
+                int64_t pos,
+                uint64_t length,
                 http_socket_callback_t callback,
                 void *callbackptr)
 {
   init();
 
   strncpy(s->url, url, sizeof(s->url));
+  s->pos = pos;
+  s->length = length;
   tcp_socket_register(&s->s, s,
                       s->inputbuf, sizeof(s->inputbuf),
                       s->outputbuf, sizeof(s->outputbuf),
