@@ -77,12 +77,7 @@ acked(struct tcp_socket *s)
     if(s->output_data_send_nxt > 0) {
       memcpy(&s->output_data_ptr[0],
 	     &s->output_data_ptr[s->output_data_send_nxt],
-	     s->output_data_maxlen - s->output_data_send_nxt);
-    }
-    if(s->output_data_len < s->output_data_send_nxt) {
-      printf("tcp: acked assertion failed s->output_data_len (%d) < s->output_data_send_nxt (%d)\n",
-	     s->output_data_len,
-	     s->output_data_send_nxt);
+	     s->output_data_len - s->output_data_send_nxt);
     }
     s->output_data_len -= s->output_data_send_nxt;
     s->output_data_send_nxt = 0;
