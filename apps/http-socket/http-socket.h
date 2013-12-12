@@ -63,7 +63,7 @@ typedef void (* http_socket_callback_t)(struct http_socket *s,
                                         uint16_t datalen);
 
 #define HTTP_SOCKET_INPUTBUFSIZE  UIP_TCP_MSS
-#define HTTP_SOCKET_OUTPUTBUFSIZE 256
+#define HTTP_SOCKET_OUTPUTBUFSIZE UIP_TCP_MSS
 
 #define HTTP_SOCKET_URLLEN        128
 
@@ -72,6 +72,8 @@ struct http_socket {
   struct tcp_socket s;
   int64_t pos;
   uint64_t length;
+  const uint8_t *postdata;
+  uint16_t postdatalen;
   http_socket_callback_t callback;
   void *callbackptr;
   char url[HTTP_SOCKET_URLLEN];
@@ -89,7 +91,7 @@ int http_socket_get(struct http_socket *s, const char *url,
                      void *callbackptr);
 
 int http_socket_post(struct http_socket *s, const char *url,
-                      const uint8_t *postdata,
+                      const void *postdata,
                       uint16_t postdatalen,
                       http_socket_callback_t callback,
                       void *callbackptr);

@@ -370,18 +370,24 @@ event(struct tcp_socket *tcps, void *ptr,
   char path[MAX_PATHLEN];
   uint16_t port;
   char str[42];
+  int len;
 
   if(e == TCP_SOCKET_CONNECTED) {
     puts("Connected");
     if(parse_url(s->url, host, &port, path)) {
-      tcp_socket_send_str(tcps, "GET ");
+      tcp_socket_send_str(tcps, s->postdata != NULL ? "POST " : "GET ");
       tcp_socket_send_str(tcps, path);
       tcp_socket_send_str(tcps, " HTTP/1.1\r\n");
       tcp_socket_send_str(tcps, "Connection: close\r\n");
       tcp_socket_send_str(tcps, "Host: ");
       tcp_socket_send_str(tcps, host);
       tcp_socket_send_str(tcps, "\r\n");
-      if(s->length || s->pos > 0) {
+      if(s->postdata != NULL) {
+        tcp_socket_send_str(tcps, "Content-Length: ");
+        sprintf(str, "%u", s->postdatalen);
+        tcp_socket_send_str(tcps, str);
+        tcp_socket_send_str(tcps, "\r\n");
+      } else if(s->length || s->pos > 0) {
         tcp_socket_send_str(tcps, "Range: bytes=");
         if(s->length) {
           if(s->pos >= 0) {
@@ -396,6 +402,11 @@ event(struct tcp_socket *tcps, void *ptr,
         tcp_socket_send_str(tcps, "\r\n");
       }
       tcp_socket_send_str(tcps, "\r\n");
+      if(s->postdata != NULL && s->postdatalen) {
+        len = tcp_socket_send(tcps, s->postdata, s->postdatalen);
+        s->postdata += len;
+        s->postdatalen -= len;
+      }
     }
     parse_header_init(s);
   } else if(e == TCP_SOCKET_CLOSED) {
@@ -410,11 +421,17 @@ event(struct tcp_socket *tcps, void *ptr,
     call_callback(s, HTTP_SOCKET_ABORTED, NULL, 0);
     removesocket(s);
     puts("Aborted");
+  } else if(e == TCP_SOCKET_DATA_SENT) {
+    if(s->postdata != NULL && s->postdatalen) {
+      len = tcp_socket_send(tcps, s->postdata, s->postdatalen);
+      s->postdata += len;
+      s->postdatalen -= len;
+    }
   }
 }
 /*---------------------------------------------------------------------------*/
 static int
-start_get(struct http_socket *s)
+start_request(struct http_socket *s)
 {
   uip_ip4addr_t ip4addr;
   uip_ip6addr_t ip6addr;
@@ -475,7 +492,7 @@ PROCESS_THREAD(http_socket_process, ev, data)
 	   strcmp(name, host) == 0) {
 	  if(mdns_lookup(name) != NULL) {
 	    /* Hostname found, restart get. */
-            start_get(s);
+            start_request(s);
 	  } else {
 	    /* Hostname not found, kill connection. */
             call_callback(s, HTTP_SOCKET_HOSTNAME_NOT_FOUND, NULL, 0);
@@ -523,6 +540,32 @@ http_socket_get(struct http_socket *s,
 
   list_add(socketlist, s);
 
-  return start_get(s);
+  return start_request(s);
+}
+/*---------------------------------------------------------------------------*/
+int
+http_socket_post(struct http_socket *s,
+                 const char *url,
+                 const void *postdata,
+                 uint16_t postdatalen,
+                 http_socket_callback_t callback,
+                 void *callbackptr)
+{
+  init();
+
+  strncpy(s->url, url, sizeof(s->url));
+  s->postdata = postdata;
+  s->postdatalen = postdatalen;
+  tcp_socket_register(&s->s, s,
+                      s->inputbuf, sizeof(s->inputbuf),
+                      s->outputbuf, sizeof(s->outputbuf),
+                      input, event);
+
+  s->callback = callback;
+  s->callbackptr = callbackptr;
+
+  list_add(socketlist, s);
+
+  return start_request(s);
 }
 /*---------------------------------------------------------------------------*/
