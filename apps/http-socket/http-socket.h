@@ -53,7 +53,7 @@ typedef void (* http_socket_callback_t)(struct http_socket *s,
                                         uint16_t datalen);
 
 #define HTTP_SOCKET_INPUTBUFSIZE  UIP_TCP_MSS
-#define HTTP_SOCKET_OUTPUTBUFSIZE 128
+#define HTTP_SOCKET_OUTPUTBUFSIZE 256
 
 #define HTTP_SOCKET_URLLEN        128
 
