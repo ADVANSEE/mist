@@ -74,14 +74,14 @@ parse_header_byte(struct http_socket *s, char c)
   }
 
   if(memcmp(status_code, "404", 3) == 0) {
-    printf("File not found\n");
+    puts("File not found");
     call_callback(s, HTTP_SOCKET_404, NULL, 0);
     while(1) {
       PT_YIELD(&s->headerpt);
     }
   } else if(memcmp(status_code, "301", 3) == 0 ||
             memcmp(status_code, "302", 3) == 0) {
-    printf("File moved (not handled)\n");
+    puts("File moved (not handled)");
     while(1) {
       PT_YIELD(&s->headerpt);
     }
@@ -171,13 +171,13 @@ parse_url(const char *url, char *host, uint16_t *portptr, char *path)
   uint16_t port;
 
   if(url == NULL) {
-    printf("null url");
+    puts("null url");
     return 0;
   }
 
   /* Don't even try to go further if the URL is empty. */
   if(strlen(url) == 0) {
-    printf("empty url");
+    puts("empty url");
     return 0;
   }
 
@@ -270,7 +270,7 @@ event(struct tcp_socket *tcps, void *ptr,
 
 
   if(e == TCP_SOCKET_CONNECTED) {
-    printf("Connected\n");
+    puts("Connected");
     if(parse_url(s->url, host, &port, path)) {
       tcp_socket_send_str(tcps, "GET ");
       tcp_socket_send_str(tcps, path);
@@ -284,15 +284,15 @@ event(struct tcp_socket *tcps, void *ptr,
   } else if(e == TCP_SOCKET_CLOSED) {
     call_callback(s, HTTP_SOCKET_CLOSED, NULL, 0);
     removesocket(s);
-    printf("Closed\n");
+    puts("Closed");
   } else if(e == TCP_SOCKET_TIMEDOUT) {
     call_callback(s, HTTP_SOCKET_TIMEDOUT, NULL, 0);
     removesocket(s);
-    printf("Timedout\n");
+    puts("Timedout");
   } else if(e == TCP_SOCKET_ABORTED) {
     call_callback(s, HTTP_SOCKET_ABORTED, NULL, 0);
     removesocket(s);
-    printf("Aborted\n");
+    puts("Aborted");
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -321,7 +321,7 @@ start_get(struct http_socket *s)
         addr = mdns_lookup(host);
         if(addr == NULL) {
           mdns_query(host);
-          printf("Resolving host...\n");
+          puts("Resolving host...");
           return HTTP_SOCKET_OK;
         }
         tcp_socket_connect(&s->s, addr, port);
