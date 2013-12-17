@@ -87,13 +87,10 @@ struct tcp_socket {
   tcp_socket_event_callback_t event_callback;
   void *ptr;
 
-  struct process *p;
-
   uint8_t *input_data_ptr;
   uint8_t *output_data_ptr;
 
   uint16_t input_data_maxlen;
-  uint16_t input_data_len;
   uint16_t output_data_maxlen;
   uint16_t output_data_len;
   uint16_t output_data_send_nxt;
