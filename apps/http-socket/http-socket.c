@@ -530,6 +530,9 @@ http_socket_get(struct http_socket *s,
   strncpy(s->url, url, sizeof(s->url));
   s->pos = pos;
   s->length = length;
+  s->postdata = NULL;
+  s->postdatalen = 0;
+  PT_INIT(&s->pt);
   tcp_socket_register(&s->s, s,
                       s->inputbuf, sizeof(s->inputbuf),
                       s->outputbuf, sizeof(s->outputbuf),
@@ -554,8 +557,11 @@ http_socket_post(struct http_socket *s,
   init();
 
   strncpy(s->url, url, sizeof(s->url));
+  s->pos = 0;
+  s->length = 0;
   s->postdata = postdata;
   s->postdatalen = postdatalen;
+  PT_INIT(&s->pt);
   tcp_socket_register(&s->s, s,
                       s->inputbuf, sizeof(s->inputbuf),
                       s->outputbuf, sizeof(s->outputbuf),
