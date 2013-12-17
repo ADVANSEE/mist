@@ -249,6 +249,8 @@ tcp_socket_register(struct tcp_socket *s, void *ptr,
   s->input_data_maxlen = input_databuf_len;
   s->output_data_ptr = output_databuf;
   s->output_data_maxlen = output_databuf_len;
+  s->output_data_len = 0;
+  s->output_data_send_nxt = 0;
   s->input_callback = input_callback;
   s->event_callback = event_callback;
   list_add(socketlist, s);
