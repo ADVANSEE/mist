@@ -57,12 +57,9 @@ parse_header_init(struct http_socket *s)
 static int
 parse_header_byte(struct http_socket *s, char c)
 {
-  static int i;
-  static struct http_socket_header header;
-  static char field[15];
   PT_BEGIN(&s->headerpt);
 
-  memset(&header, -1, sizeof(header));
+  memset(&s->header, -1, sizeof(s->header));
 
   /* Skip the HTTP response */
   while(c != ' ') {
@@ -72,127 +69,127 @@ parse_header_byte(struct http_socket *s, char c)
   /* Skip the space */
   PT_YIELD(&s->headerpt);
   /* Read three characters of HTTP status and convert to BCD */
-  header.status_code = 0;
-  for(i = 0; i < 3; i++) {
-    header.status_code = header.status_code << 4 | (c - '0');
+  s->header.status_code = 0;
+  for(s->header_chars = 0; s->header_chars < 3; s->header_chars++) {
+    s->header.status_code = s->header.status_code << 4 | (c - '0');
     PT_YIELD(&s->headerpt);
   }
 
-  if(header.status_code == 0x404) {
+  if(s->header.status_code == 0x404) {
     puts("File not found");
-  } else if(header.status_code == 0x301 || header.status_code == 0x302) {
+  } else if(s->header.status_code == 0x301 || s->header.status_code == 0x302) {
     puts("File moved (not handled)");
-  } else if(header.status_code == 0x200 || header.status_code == 0x206) {
+  } else if(s->header.status_code == 0x200 || s->header.status_code == 0x206) {
     /* Read headers until data */
 
     while(1) {
       /* Skip characters until end of line */
       do {
         while(c != '\r') {
-          i++;
+          s->header_chars++;
           PT_YIELD(&s->headerpt);
         }
-        i++;
+        s->header_chars++;
         PT_YIELD(&s->headerpt);
       } while(c != '\n');
-      i--;
+      s->header_chars--;
       PT_YIELD(&s->headerpt);
 
-      if(i == 0) {
+      if(s->header_chars == 0) {
         /* This was an empty line, i.e. the end of headers */
         break;
       }
 
       /* Start of line */
-      i = 0;
+      s->header_chars = 0;
 
       /* Read header field */
       while(c != ' ' && c != '\t' && c != ':' && c != '\r' &&
-            i < sizeof(field) - 1) {
-        field[i++] = c;
+            s->header_chars < sizeof(s->header_field) - 1) {
+        s->header_field[s->header_chars++] = c;
         PT_YIELD(&s->headerpt);
       }
-      field[i] = '\0';
+      s->header_field[s->header_chars] = '\0';
       /* Skip linear white spaces */
       while(c == ' ' || c == '\t') {
-        i++;
+        s->header_chars++;
         PT_YIELD(&s->headerpt);
       }
       if(c == ':') {
         /* Skip the colon */
-        i++;
+        s->header_chars++;
         PT_YIELD(&s->headerpt);
         /* Skip linear white spaces */
         while(c == ' ' || c == '\t') {
-          i++;
+          s->header_chars++;
           PT_YIELD(&s->headerpt);
         }
-        if(!strcmp(field, "Content-Length")) {
-          header.content_length = 0;
+        if(!strcmp(s->header_field, "Content-Length")) {
+          s->header.content_length = 0;
           while(isdigit((int)c)) {
-            header.content_length = header.content_length * 10 + c - '0';
-            i++;
+            s->header.content_length = s->header.content_length * 10 + c - '0';
+            s->header_chars++;
             PT_YIELD(&s->headerpt);
           }
-        } else if(!strcmp(field, "Content-Range")) {
+        } else if(!strcmp(s->header_field, "Content-Range")) {
           /* Skip the bytes-unit token */
           while(c != ' ' && c != '\t') {
-            i++;
+            s->header_chars++;
             PT_YIELD(&s->headerpt);
           }
           /* Skip linear white spaces */
           while(c == ' ' || c == '\t') {
-            i++;
+            s->header_chars++;
             PT_YIELD(&s->headerpt);
           }
-          header.content_range.first_byte_pos = 0;
+          s->header.content_range.first_byte_pos = 0;
           while(isdigit((int)c)) {
-            header.content_range.first_byte_pos =
-              header.content_range.first_byte_pos * 10 + c - '0';
-            i++;
+            s->header.content_range.first_byte_pos =
+              s->header.content_range.first_byte_pos * 10 + c - '0';
+            s->header_chars++;
             PT_YIELD(&s->headerpt);
           }
           /* Skip linear white spaces */
           while(c == ' ' || c == '\t') {
-            i++;
+            s->header_chars++;
             PT_YIELD(&s->headerpt);
           }
           if(c == '-') {
             /* Skip the dash */
-            i++;
+            s->header_chars++;
             PT_YIELD(&s->headerpt);
             /* Skip linear white spaces */
             while(c == ' ' || c == '\t') {
-              i++;
+              s->header_chars++;
               PT_YIELD(&s->headerpt);
             }
-            header.content_range.last_byte_pos = 0;
+            s->header.content_range.last_byte_pos = 0;
             while(isdigit((int)c)) {
-              header.content_range.last_byte_pos =
-                header.content_range.last_byte_pos * 10 + c - '0';
-              i++;
+              s->header.content_range.last_byte_pos =
+                s->header.content_range.last_byte_pos * 10 + c - '0';
+              s->header_chars++;
               PT_YIELD(&s->headerpt);
             }
             /* Skip linear white spaces */
             while(c == ' ' || c == '\t') {
-              i++;
+              s->header_chars++;
               PT_YIELD(&s->headerpt);
             }
             if(c == '/') {
               /* Skip the slash */
-              i++;
+              s->header_chars++;
               PT_YIELD(&s->headerpt);
               /* Skip linear white spaces */
               while(c == ' ' || c == '\t') {
-                i++;
+                s->header_chars++;
                 PT_YIELD(&s->headerpt);
               }
               if(c != '*') {
-                header.content_range.instance_length = 0;
+                s->header.content_range.instance_length = 0;
                 while(isdigit((int)c)) {
-                  header.content_range.instance_length =
-                    header.content_range.instance_length * 10 + c - '0';
-                  i++;
+                  s->header.content_range.instance_length =
+                    s->header.content_range.instance_length * 10 + c - '0';
+                  s->header_chars++;
                   PT_YIELD(&s->headerpt);
                 }
               }
@@ -203,14 +200,14 @@ parse_header_byte(struct http_socket *s, char c)
     }
 
     /* All headers read, now read data */
-    call_callback(s, HTTP_SOCKET_HEADER, (void *)&header, sizeof(header));
+    call_callback(s, HTTP_SOCKET_HEADER, (void *)&s->header, sizeof(s->header));
 
     /* Should exit the pt here to indicate that all headers have been
        read */
     PT_EXIT(&s->headerpt);
   }
 
-  call_callback(s, HTTP_SOCKET_HEADER, (void *)&header, sizeof(header));
+  call_callback(s, HTTP_SOCKET_HEADER, (void *)&s->header, sizeof(s->header));
   while(1) {
     PT_YIELD(&s->headerpt);
   }

@@ -81,6 +81,9 @@ struct http_socket {
   uint8_t outputbuf[HTTP_SOCKET_OUTPUTBUFSIZE];
 
   struct pt pt, headerpt;
+  int header_chars;
+  char header_field[15];
+  struct http_socket_header header;
   uint8_t header_received;
 };
 
