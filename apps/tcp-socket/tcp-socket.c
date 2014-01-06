@@ -198,9 +198,6 @@ appcall(void *state)
   if(s->output_data_len == 0 && s->flags & TCP_SOCKET_FLAGS_CLOSING) {
     s->flags &= ~TCP_SOCKET_FLAGS_CLOSING;
     uip_close();
-    tcp_markconn(uip_conn, NULL);
-    call_event(s, TCP_SOCKET_CLOSED);
-    relisten(s);
   }
 
   if(uip_closed()) {
