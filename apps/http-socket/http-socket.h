@@ -67,6 +67,8 @@ typedef void (* http_socket_callback_t)(struct http_socket *s,
 
 #define HTTP_SOCKET_URLLEN        128
 
+#define HTTP_SOCKET_TIMEOUT       ((2 * 60 + 30) * CLOCK_SECOND)
+
 struct http_socket {
   struct http_socket *next;
   struct tcp_socket s;
@@ -80,11 +82,13 @@ struct http_socket {
   uint8_t inputbuf[HTTP_SOCKET_INPUTBUFSIZE];
   uint8_t outputbuf[HTTP_SOCKET_OUTPUTBUFSIZE];
 
+  struct etimer timeout_timer;
   struct pt pt, headerpt;
   int header_chars;
   char header_field[15];
   struct http_socket_header header;
   uint8_t header_received;
+  uint64_t bodylen;
 };
 
 

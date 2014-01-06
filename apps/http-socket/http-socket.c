@@ -241,13 +241,31 @@ input_pt(struct http_socket *s,
     }
   } while(s->header_received == 0);
 
+  s->bodylen = 0;
   do {
     /* Receive the data */
     call_callback(s, HTTP_SOCKET_DATA, inputptr, inputdatalen);
+
+    /* Close the connection if the expected content length has been received */
+    if(s->header.content_length >= 0 && s->bodylen < s->header.content_length) {
+      s->bodylen += inputdatalen;
+      if(s->bodylen >= s->header.content_length) {
+        tcp_socket_close(&s->s);
+      }
+    }
+
     PT_YIELD(&s->pt);
   } while(inputdatalen > 0);
 
   PT_END(&s->pt);
+}
+/*---------------------------------------------------------------------------*/
+static void
+start_timeout_timer(struct http_socket *s)
+{
+  PROCESS_CONTEXT_BEGIN(&http_socket_process);
+  etimer_set(&s->timeout_timer, HTTP_SOCKET_TIMEOUT);
+  PROCESS_CONTEXT_END(&http_socket_process);
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -257,6 +275,7 @@ input(struct tcp_socket *tcps, void *ptr,
   struct http_socket *s = ptr;
 
   input_pt(s, inputptr, inputdatalen);
+  start_timeout_timer(s);
 
   return 0; /* all data consumed */
 }
@@ -355,6 +374,7 @@ parse_url(const char *url, char *host, uint16_t *portptr, char *path)
 static void
 removesocket(struct http_socket *s)
 {
+  etimer_stop(&s->timeout_timer);
   list_remove(socketlist, s);
 }
 /*---------------------------------------------------------------------------*/
@@ -423,6 +443,8 @@ event(struct tcp_socket *tcps, void *ptr,
       len = tcp_socket_send(tcps, s->postdata, s->postdatalen);
       s->postdata += len;
       s->postdatalen -= len;
+    } else {
+      start_timeout_timer(s);
     }
   }
 }
@@ -496,6 +518,22 @@ PROCESS_THREAD(http_socket_process, ev, data)
             removesocket(s);
 	  }
 	}
+      }
+    } else if(ev == PROCESS_EVENT_TIMER) {
+      struct http_socket *s;
+      struct etimer *timeout_timer = data;
+      /*
+       * A socket time-out has occurred. We need to go through the list of HTTP
+       * sockets and figure out to which socket this timer event corresponds,
+       * then close this socket.
+       */
+      for(s = list_head(socketlist);
+          s != NULL;
+          s = list_item_next(s)) {
+        if(timeout_timer == &s->timeout_timer) {
+          tcp_socket_close(&s->s);
+          break;
+        }
       }
     }
   }
