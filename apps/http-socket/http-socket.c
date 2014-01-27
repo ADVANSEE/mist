@@ -266,6 +266,7 @@ start_timeout_timer(struct http_socket *s)
   PROCESS_CONTEXT_BEGIN(&http_socket_process);
   etimer_set(&s->timeout_timer, HTTP_SOCKET_TIMEOUT);
   PROCESS_CONTEXT_END(&http_socket_process);
+  s->timeout_timer_started = 1;
 }
 /*---------------------------------------------------------------------------*/
 static int
@@ -375,6 +376,7 @@ static void
 removesocket(struct http_socket *s)
 {
   etimer_stop(&s->timeout_timer);
+  s->timeout_timer_started = 0;
   list_remove(socketlist, s);
 }
 /*---------------------------------------------------------------------------*/
@@ -530,7 +532,7 @@ PROCESS_THREAD(http_socket_process, ev, data)
       for(s = list_head(socketlist);
           s != NULL;
           s = list_item_next(s)) {
-        if(timeout_timer == &s->timeout_timer) {
+        if(timeout_timer == &s->timeout_timer && s->timeout_timer_started) {
           tcp_socket_close(&s->s);
           break;
         }
@@ -567,6 +569,7 @@ http_socket_get(struct http_socket *s,
   s->length = length;
   s->postdata = NULL;
   s->postdatalen = 0;
+  s->timeout_timer_started = 0;
   PT_INIT(&s->pt);
   tcp_socket_register(&s->s, s,
                       s->inputbuf, sizeof(s->inputbuf),
@@ -596,6 +599,7 @@ http_socket_post(struct http_socket *s,
   s->length = 0;
   s->postdata = postdata;
   s->postdatalen = postdatalen;
+  s->timeout_timer_started = 0;
   PT_INIT(&s->pt);
   tcp_socket_register(&s->s, s,
                       s->inputbuf, sizeof(s->inputbuf),

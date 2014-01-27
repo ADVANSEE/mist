@@ -83,6 +83,7 @@ struct http_socket {
   uint8_t outputbuf[HTTP_SOCKET_OUTPUTBUFSIZE];
 
   struct etimer timeout_timer;
+  uint8_t timeout_timer_started;
   struct pt pt, headerpt;
   int header_chars;
   char header_field[15];
